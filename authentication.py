@@ -49,13 +49,27 @@ def register(username, password, token):
         con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
         cur = con.cursor()
         cur.execute('INSERT INTO customers (username, password, token) VALUES (?, ?, ?)',
-                    (username, password, 'token_exemplo'))
+                    (username, password)) #lembrar de encriptar senha com argon2 ou bcrypt
         con.commit()
         con.close()
 
         return render_template('register.html'), 200
     else:
         return render_template('register.html'), 200
+
+@app.route('/login/<string:username>/<string:password>/<string:token>')
+def login(username, password, token):
+    encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}", 'exp': datetime.now(tz=timezone.utc)}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
+    if verify_user_agent() and token == encode:
+        # con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
+        # cur = con.cursor()
+        # con.commit()
+        # con.close()
+
+        return render_template('login.html'), 200
+    else:
+        return render_template('login.html'), 200
+
 
 @app.route('/ip')
 def ip():
