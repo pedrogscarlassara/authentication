@@ -11,6 +11,8 @@ import os
 load_dotenv()
 app = Flask(__name__)
 
+#criar user-agent diferente pra cada endpoint, assim aumenta o salt do encode
+
 def get_user_agent():
     return request.headers.get('User-Agent')
 
@@ -38,17 +40,18 @@ def main():
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
 def register(username, password, token):
-    #verificar expiry do token dps, pode estar quebrado
-    encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}", 'exp': datetime.now(tz=timezone.utc)}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
+    encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}"}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
 
     requests.post(
         os.getenv("DISCORD_WEBHOOK"),
         json={'content': f'Someone connected to the Register endpoint.\nUser-Agent: || {get_user_agent()} ||\nArguments:\n\t{username}\n\t{password}', 'username': 'Register Endpoint'})
 
+    print(f'Debug: {get_user_agent()}')
     if verify_user_agent() and token == encode:
+        print('oi')
         con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
         cur = con.cursor()
-        cur.execute('INSERT INTO customers (username, password, token) VALUES (?, ?, ?)',
+        cur.execute('INSERT INTO customers (username, password) VALUES (?, ?)',
                     (username, password)) #lembrar de encriptar senha com argon2 ou bcrypt
         con.commit()
         con.close()
@@ -59,17 +62,33 @@ def register(username, password, token):
 
 @app.route('/login/<string:username>/<string:password>/<string:token>')
 def login(username, password, token):
-    encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}", 'exp': datetime.now(tz=timezone.utc)}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
-    if verify_user_agent() and token == encode:
-        # con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
-        # cur = con.cursor()
-        # con.commit()
-        # con.close()
+    encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}"}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
 
+    print(get_user_agent())
+    print(token)
+    print(encode)
+    if verify_user_agent() and token == encode:
+        con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
+        cur = con.cursor()
+        cur.execute("SELECT * FROM customers WHERE username = ?", (username,))
+        con.commit()
+        con.close()
         return render_template('login.html'), 200
     else:
         return render_template('login.html'), 200
 
+@app.route('/delete/<string:username>/<string:password>/<string:token>')
+def delete(username, password, token):
+    encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}"}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
+    if verify_user_agent() and token == encode:
+        con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
+        cur = con.cursor()
+        cur.execute("DELETE FROM customers WHERE username = ? AND password = ?", (username, password))
+        con.commit()
+        con.close()
+        return 'holder'
+    else:
+        return 'holder'
 
 @app.route('/ip')
 def ip():
