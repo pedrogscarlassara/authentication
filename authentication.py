@@ -15,6 +15,7 @@ def get_user_agent():
     return request.headers.get('User-Agent')
 
 def get_user_ip():
+    #usando ip local por enquanto, mudar dps
     response = requests.get('http://127.0.0.1:5000/ip')
     return response.json()['ip']
 
@@ -24,6 +25,7 @@ def verify_user_agent():
     else:
         return False
 
+# por enquanto apenas um placeholder
 @app.route('/')
 def main():
     requests.post(
@@ -38,15 +40,13 @@ def main():
 def register(username, password, token):
     #verificar expiry do token dps, pode estar quebrado
     encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}", 'exp': datetime.now(tz=timezone.utc)}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
-    print(f'Token: {token}')
-    print(f'Encode: {encode}')
 
     requests.post(
         os.getenv("DISCORD_WEBHOOK"),
         json={'content': f'Someone connected to the Register endpoint.\nUser-Agent: || {get_user_agent()} ||\nArguments:\n\t{username}\n\t{password}', 'username': 'Register Endpoint'})
 
     if verify_user_agent() and token == encode:
-        con = sqlite3.connect('test.db')
+        con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
         cur = con.cursor()
         cur.execute('INSERT INTO customers (username, password, token) VALUES (?, ?, ?)',
                     (username, password, 'token_exemplo'))
