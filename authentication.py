@@ -29,7 +29,7 @@ def verify_user_agent():
 @app.route('/')
 def main():
     requests.post(
-        'https://discord.com/api/webhooks/1395438211307671582/CMaG4AMpLiCbgmZ2IQfJ6ZQK00t6dkwQAV7PPpccbWDm_4CZCaWDKed5sjxrG4HBRFMm',
+        os.getenv("DISCORD_WEBHOOK"),
         json={'content': f'Someone connected to the Main endpoint.\nUser-Agent: || {get_user_agent()} ||', 'username': 'Main Endpoint'})
     if verify_user_agent():
         return render_template('main.html'), 200
@@ -42,7 +42,7 @@ def register(username, password):
     print(f'Encoded: {encode}')
 
     requests.post(
-        'https://discord.com/api/webhooks/1395438211307671582/CMaG4AMpLiCbgmZ2IQfJ6ZQK00t6dkwQAV7PPpccbWDm_4CZCaWDKed5sjxrG4HBRFMm',
+        os.getenv("DISCORD_WEBHOOK"),
         json={'content': f'Someone connected to the Register endpoint.\nUser-Agent: || {get_user_agent()} ||\nArguments:\n\t{username}\n\t{password}', 'username': 'Register Endpoint'})
 
     if verify_user_agent():
