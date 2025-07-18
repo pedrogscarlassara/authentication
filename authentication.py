@@ -19,7 +19,7 @@ def get_user_ip():
     return response.json()['ip']
 
 def verify_user_agent():
-    if request.headers.get('User-Agent') == 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0':
+    if request.headers.get('User-Agent') == os.getenv("USER_AGENT"):
         return True
     else:
         return False
@@ -36,7 +36,7 @@ def main():
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
 def register(username, password, token):
-    #verificar expiry do token
+    #verificar expiry do token dps, pode estar quebrado
     encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}", 'exp': datetime.now(tz=timezone.utc)}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
     print(f'Token: {token}')
     print(f'Encode: {encode}')
