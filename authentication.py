@@ -86,9 +86,9 @@ def delete(username, password, token):
         cur.execute("DELETE FROM customers WHERE username = ? AND password = ?", (username, password))
         con.commit()
         con.close()
-        return 'holder'
+        return render_template('delete.html'), 200
     else:
-        return 'holder'
+        return render_template('delete.html'), 200
 
 @app.route('/ip')
 def ip():
