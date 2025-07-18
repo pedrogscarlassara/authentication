@@ -1,5 +1,5 @@
-# Arquivo para emular o lado do cliente
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 import jwt
 import os
 import requests
@@ -7,14 +7,18 @@ import requests
 username = 'pedro'
 password = 'senha'
 
-# cliente e servidor estão gerando a mesma senha
-
-
 load_dotenv()
+
 def get_user_ip():
-   response = requests.get('https://api.ipify.org', headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'})
-   return response
+   response = requests.get('http://127.0.0.1:5000/ip', headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0'})
+   return response.json()['ip']
 
+def register():
+   encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}", 'exp': datetime.now(tz=timezone.utc)}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
+   response = requests.get(f'http://127.0.0.1:5000/register/{username}/{password}/{encode}')
+   print(response.status_code)
 
-encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}"}, os.getenv("SECRET_KEY"), algorithm='HS256')
-print(encode)
+   print(f'Debug: {encode}')
+
+register()
+
