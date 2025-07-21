@@ -1,4 +1,6 @@
 from flask import Flask, request, render_template, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import requests
@@ -9,6 +11,8 @@ import os
 
 load_dotenv()
 app = Flask(__name__)
+
+limiter = Limiter(app=app, key_func=get_remote_address, storage_uri="memory://")
 
 def get_user_agent():
     return request.headers.get('User-Agent')
@@ -52,6 +56,7 @@ def main():
     return render_template('main.html'), 200
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
+@limiter.limit('5/minute')
 def register(username, password, token):
     decoded = verify_jwt_token(token, 'register')
     if not decoded:
@@ -81,6 +86,7 @@ def register(username, password, token):
         return render_template('error.html'), 401
 
 @app.route('/login/<string:username>/<string:password>/<string:token>')
+@limiter.limit('5/minute')
 def login(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("LOGIN_USER_AGENT"))
     if not decoded:
@@ -116,6 +122,7 @@ def login(username, password, token):
         return render_template('error.html'), 401
 
 @app.route('/delete/<string:username>/<string:password>/<string:token>')
+@limiter.limit('5/minute')
 def delete(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("DELETE_USER_AGENT"))
     if not decoded:
@@ -146,6 +153,7 @@ def delete(username, password, token):
         return render_template('error.html'), 401
 
 @app.route('/ip')
+@limiter.limit('5/minute')
 def ip():
     if verify_user_agent(os.getenv("IP_USER_AGENT")):
         return jsonify({'ip': f'{request.remote_addr}'}), 200
@@ -155,12 +163,12 @@ def ip():
 
 @app.route('/analytics')
 def analytics():
+    # Private visualizer for logs
     con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
     cur = con.cursor()
     cur.execute('CREATE TABLE IF NOT EXISTS analytics(event TEXT, ip TEXT, useragent TEXT, timestamp DATETIME)')
-    print('Created database')
     con.close()
-    return 'analytics'
+    return ''
 
 @app.errorhandler(404)
 def page_not_found(e):
