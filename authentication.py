@@ -1,5 +1,4 @@
 from flask import Flask, request, render_template, jsonify
-from flask_ipban import IpBan
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import requests
@@ -10,8 +9,6 @@ import os
 
 load_dotenv()
 app = Flask(__name__)
-ip_ban = IpBan(ban_seconds=200)
-ip_ban.init_app(app)
 
 def get_user_agent():
     return request.headers.get('User-Agent')
@@ -23,7 +20,7 @@ def get_user_ip():
 def verify_user_agent(agent):
     return request.headers.get('User-Agent') == agent
 
-def verify_jwt_token(token, expected_user_agent):
+def verify_jwt_token(token, expected_secret):
     try:
         decoded = jwt.decode(
             token,
@@ -31,7 +28,9 @@ def verify_jwt_token(token, expected_user_agent):
             algorithms=['HS256'],
             options={'verify_exp': True}
         )
-        if decoded.get('headers', {}).get('secret') != expected_user_agent:
+        headers = jwt.get_unverified_header(token)
+        if headers.get('secret') != expected_secret:
+            print(f"Header secret mismatch: expected {expected_secret}, got {headers.get('secret')}")
             return False
         return decoded
     except jwt.ExpiredSignatureError:
@@ -54,7 +53,7 @@ def main():
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
 def register(username, password, token):
-    decoded = verify_jwt_token(token, os.getenv("REGISTER_USER_AGENT"))
+    decoded = verify_jwt_token(token, 'register')
     if not decoded:
         discord_webhook('Unable to decode JWT token', 'Register Endpoint')
         return render_template('error.html'), 401
@@ -65,15 +64,20 @@ def register(username, password, token):
         discord_webhook('Registering a user to the database', 'Register Endpoint')
         con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
         cur = con.cursor()
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        cur.execute('INSERT INTO customers (username, password) VALUES (?, ?)',
-                    (username, hashed_password))
+        try:
+            bcrypt.checkpw(b"test", password.encode('utf-8'))
+            hashed_password = password.encode('utf-8')
+        except ValueError:
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        cur.execute('INSERT INTO customers (username, password) VALUES (?, ?)', (username, hashed_password))
+        cur.execute('INSERT INTO analytics (event, ip, useragent, timestamp) VALUES (?, ?, ?, ?)',
+                    (f'Registered a user: {username}', get_user_ip(), get_user_agent(), datetime.now()))
         con.commit()
         discord_webhook('Registered a user to the database', 'Register Endpoint')
         con.close()
         return render_template('register.html'), 200
     else:
-        print(f"User-Agent: {get_user_agent()}")
+        discord_webhook('Invalid user agent', 'Register Endpoint')
         return render_template('error.html'), 401
 
 @app.route('/login/<string:username>/<string:password>/<string:token>')
@@ -83,10 +87,7 @@ def login(username, password, token):
         discord_webhook('Unable to decode JWT token', 'Login Endpoint')
         return render_template('error.html'), 401
 
-    requests.post(
-        os.getenv("DISCORD_WEBHOOK"),
-        json={'content': f'Someone connected to the Login endpoint.\nUser-Agent: || {get_user_agent()} ||',
-              'username': 'Login Endpoint'})
+    discord_webhook('Someone connected to the Login endpoint', 'Login Endpoint')
 
     if verify_user_agent(os.getenv("LOGIN_USER_AGENT")):
         con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
@@ -98,7 +99,7 @@ def login(username, password, token):
         if result and bcrypt.checkpw(password.encode('utf-8'), result[0]):
             new_token = jwt.encode(
                 {
-                    "key": f"{username}{get_user_ip()}",
+                    "key": f"{username}{password}{get_user_ip()}",
                     "exp": datetime.now(timezone.utc).timestamp() + 3600,
                     "headers": {"secret": os.getenv("LOGIN_USER_AGENT")}
                 },
@@ -107,8 +108,10 @@ def login(username, password, token):
             )
             return jsonify({'token': new_token, 'message': 'Login successful'}), 200
         else:
+            discord_webhook('Invalid credentials', 'Login Endpoint')
             return render_template('error.html'), 401
     else:
+        discord_webhook('Invalid user agent', 'Login Endpoint')
         print(f"User-Agent: {get_user_agent()}")
         return render_template('error.html'), 401
 
@@ -128,31 +131,41 @@ def delete(username, password, token):
 
         if result and bcrypt.checkpw(password.encode('utf-8'), result[0]):
             cur.execute("DELETE FROM customers WHERE username = ?", (username,))
+            cur.execute('INSERT INTO analytics (event, ip, useragent, timestamp) VALUES (?, ?, ?, ?)',
+                        (f'Deleted a user: {username}', get_user_ip(), get_user_agent(), datetime.now()))
             con.commit()
             discord_webhook(f'Deleted {username} from the database', 'Delete Endpoint')
             con.close()
             return render_template('delete.html'), 200
         else:
             con.close()
+            discord_webhook('Invalid credentials', 'Delete Endpoint')
             return render_template('error.html'), 401
     else:
+        discord_webhook('Invalid user agent', 'Delete Endpoint')
         return render_template('error.html'), 401
 
 @app.route('/ip')
 def ip():
-    discord_webhook('Someone connected to the IP endpoint', 'IP Endpoint')
     if verify_user_agent(os.getenv("IP_USER_AGENT")):
         return jsonify({'ip': f'{request.remote_addr}'}), 200
     else:
+        discord_webhook('Invalid user agent', 'IP Endpoint')
         return render_template('error.html'), 401
 
 @app.route('/analytics')
 def analytics():
+    con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
+    cur = con.cursor()
+    cur.execute('CREATE TABLE IF NOT EXISTS analytics(event TEXT, ip TEXT, useragent TEXT, timestamp DATETIME)')
+    print('Created database')
+    con.close()
     return 'analytics'
 
 @app.errorhandler(404)
 def page_not_found(e):
+    discord_webhook('Page not found', 'Error Handler')
     return render_template('error.html'), 404
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True)
