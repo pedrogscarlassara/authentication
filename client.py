@@ -1,24 +1,23 @@
-from dotenv import load_dotenv
-from datetime import datetime, timezone
+import requests
+import bcrypt
 import jwt
 import os
-import requests
+from dotenv import load_dotenv
 
-username = ''
-password = ''
 
 load_dotenv()
 
 def get_user_ip():
-   response = requests.get('http://127.0.0.1:5000/ip', headers={'User-Agent': f'{os.getenv("USER_AGENT")}'})
+   response = requests.get('http://127.0.0.1:5000/ip', headers={'User-Agent': f'{os.getenv('IP_USER_AGENT')}'})
+   print(response.text)
    return response.json()['ip']
 
-def register():
-   encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}"}, os.getenv("SECRET_KEY"), algorithm='HS256', headers={'secret': os.getenv("HEADER_KEY")})
-   response = requests.get(f'http://127.0.0.1:5000/delete/{username}/{password}/{encode}', headers={'User-Agent': f'{os.getenv("USER_AGENT")}'})
-   print(response.status_code)
+username = 'pedro'
+non_encrypted_password = b'password'
+password = bcrypt.hashpw(non_encrypted_password, bcrypt.gensalt(8))
 
-   print(f'Debug: {encode}')
+encode = jwt.encode({"key": f"{username}{password}{get_user_ip()}"}, os.getenv("SECRET_KEY"), algorithm='HS256',headers={'secret': 'register'})
 
-register()
-
+debug = requests.get(f'http://127.0.0.1:5000/register/{username}/{password}/{encode}', headers={'User-Agent': f'register'})
+print(debug.status_code)
+print(debug.text)
