@@ -3,8 +3,6 @@ from flask_ipban import IpBan
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import requests
-import base64
-import hashlib
 import sqlite3
 import bcrypt
 import jwt
@@ -43,15 +41,15 @@ def verify_jwt_token(token, expected_user_agent):
         print(f"Invalid token error: {e}")
         return False
 
+def discord_webhook(message, username):
+    requests.post(
+        os.getenv("DISCORD_WEBHOOK"),
+        json={'content': f'{message}\nUser-Agent: {get_user_agent()}\nIP: {get_user_ip()}',
+              'username': username})
 
 @app.route('/')
 def main():
-    requests.post(
-        os.getenv("DISCORD_WEBHOOK"),
-        json={'content': f'Someone connected to the Main endpoint.\nUser-Agent: || {get_user_agent()} ||',
-              'username': 'Main Endpoint'})
     return render_template('main.html'), 200
-
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
 def register(username, password, token):
@@ -78,7 +76,6 @@ def register(username, password, token):
     else:
         print(f"User-Agent: {get_user_agent()}")
         return render_template('error.html'), 401
-
 
 @app.route('/login/<string:username>/<string:password>/<string:token>')
 def login(username, password, token):
@@ -115,7 +112,6 @@ def login(username, password, token):
         print(f"User-Agent: {get_user_agent()}")
         return render_template('error.html'), 401
 
-
 @app.route('/delete/<string:username>/<string:password>/<string:token>')
 def delete(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("DELETE_USER_AGENT"))
@@ -144,7 +140,6 @@ def delete(username, password, token):
     else:
         return render_template('error.html'), 401
 
-
 @app.route('/ip')
 def ip():
     requests.post(
@@ -156,11 +151,13 @@ def ip():
     else:
         return render_template('error.html'), 401
 
+@app.route('/analytics')
+def analytics():
+    return 'analytics'
 
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('error.html'), 404
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
