@@ -49,28 +49,27 @@ def discord_webhook(message, username):
 
 @app.route('/')
 def main():
+    discord_webhook('Someone connected to the Main endpoint', 'Main Endpoint')
     return render_template('main.html'), 200
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
 def register(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("REGISTER_USER_AGENT"))
     if not decoded:
+        discord_webhook('Unable to decode JWT token', 'Register Endpoint')
         return render_template('error.html'), 401
 
-    requests.post(
-        os.getenv("DISCORD_WEBHOOK"),
-        json={
-            'content': f'Someone connected to the Register endpoint.\nUser-Agent: || {get_user_agent()} ||\nArguments:\n\t{username}\n\t{password}',
-            'username': 'Register Endpoint'})
+    discord_webhook('Someone connected to the Register endpoint', 'Register Endpoint')
 
     if verify_user_agent(os.getenv("REGISTER_USER_AGENT")):
-        print('Registering user...')
+        discord_webhook('Registering a user to the database', 'Register Endpoint')
         con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
         cur = con.cursor()
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         cur.execute('INSERT INTO customers (username, password) VALUES (?, ?)',
                     (username, hashed_password))
         con.commit()
+        discord_webhook('Registered a user to the database', 'Register Endpoint')
         con.close()
         return render_template('register.html'), 200
     else:
@@ -81,6 +80,7 @@ def register(username, password, token):
 def login(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("LOGIN_USER_AGENT"))
     if not decoded:
+        discord_webhook('Unable to decode JWT token', 'Login Endpoint')
         return render_template('error.html'), 401
 
     requests.post(
@@ -116,13 +116,10 @@ def login(username, password, token):
 def delete(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("DELETE_USER_AGENT"))
     if not decoded:
+        discord_webhook('Unable to decode JWT token', 'Delete Endpoint')
         return render_template('error.html'), 401
 
-    requests.post(
-        os.getenv("DISCORD_WEBHOOK"),
-        json={'content': f'Someone connected to the Delete endpoint.\nUser-Agent: || {get_user_agent()} ||',
-              'username': 'Delete Endpoint'})
-
+    discord_webhook('Someone connected to the Delete endpoint', 'Delete Endpoint')
     if verify_user_agent(os.getenv("DELETE_USER_AGENT")):
         con = sqlite3.connect(os.getenv("DATABASE_FILE_NAME"))
         cur = con.cursor()
@@ -132,6 +129,7 @@ def delete(username, password, token):
         if result and bcrypt.checkpw(password.encode('utf-8'), result[0]):
             cur.execute("DELETE FROM customers WHERE username = ?", (username,))
             con.commit()
+            discord_webhook(f'Deleted {username} from the database', 'Delete Endpoint')
             con.close()
             return render_template('delete.html'), 200
         else:
@@ -142,10 +140,7 @@ def delete(username, password, token):
 
 @app.route('/ip')
 def ip():
-    requests.post(
-        os.getenv("DISCORD_WEBHOOK"),
-        json={'content': f'Someone connected to the IP endpoint.\nUser-Agent: || {get_user_agent()} ||',
-              'username': 'IP Endpoint'})
+    discord_webhook('Someone connected to the IP endpoint', 'IP Endpoint')
     if verify_user_agent(os.getenv("IP_USER_AGENT")):
         return jsonify({'ip': f'{request.remote_addr}'}), 200
     else:
