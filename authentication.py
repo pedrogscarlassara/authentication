@@ -52,11 +52,11 @@ def discord_webhook(message, username):
 
 @app.route('/')
 def main():
-    discord_webhook('Someone connected to the Main endpoint', 'Main Endpoint')
+    #discord_webhook('Someone connected to the Main endpoint', 'Main Endpoint')
     return render_template('main.html'), 200
 
 @app.route('/register/<string:username>/<string:password>/<string:token>')
-@limiter.limit('5/minute')
+@limiter.limit('5/minute', '25/hour')
 def register(username, password, token):
     decoded = verify_jwt_token(token, 'register')
     if not decoded:
@@ -86,7 +86,7 @@ def register(username, password, token):
         return render_template('error.html'), 401
 
 @app.route('/login/<string:username>/<string:password>/<string:token>')
-@limiter.limit('5/minute')
+@limiter.limit('5/minute', '25/hour')
 def login(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("LOGIN_USER_AGENT"))
     if not decoded:
@@ -122,7 +122,7 @@ def login(username, password, token):
         return render_template('error.html'), 401
 
 @app.route('/delete/<string:username>/<string:password>/<string:token>')
-@limiter.limit('5/minute')
+@limiter.limit('5/minute', '25/hour')
 def delete(username, password, token):
     decoded = verify_jwt_token(token, os.getenv("DELETE_USER_AGENT"))
     if not decoded:
@@ -153,7 +153,7 @@ def delete(username, password, token):
         return render_template('error.html'), 401
 
 @app.route('/ip')
-@limiter.limit('5/minute')
+@limiter.limit('5/minute', '25/hour')
 def ip():
     if verify_user_agent(os.getenv("IP_USER_AGENT")):
         return jsonify({'ip': f'{request.remote_addr}'}), 200
