@@ -1,7 +1,6 @@
 # Authenticator
 
-**Authenticator** is an open-source project that aims to apply the best cybersecurity practices.<br>
-The project is not finished yet, I will keep updating it.
+**Authenticator** is an open-source authentication project that aims to follow the best cybersecurity practices. <br>The project is still a work in progress, and I’m actively working on it.
 
 ## About
 
