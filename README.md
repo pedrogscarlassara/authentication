@@ -19,7 +19,7 @@ This is my first authentication project. If you are an expert and have recommend
 2. Install the dependencies:
 
     ```bash
-    pip install flask python-dotenv requests bcrypt PyJWT
+    pip install flask flask_limiter python-dotenv requests bcrypt PyJWT
     ```
 
 ## Usage
