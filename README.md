@@ -5,7 +5,7 @@ The project is not finished yet, I will keep updating it.
 
 ## About
 
-This is my first authentication project. If you are an expert and have recommendations or feedback, feel free to contact me via email (available on my profile) or open a pull request.
+This is my first authentication project. If you are an expert and have recommendations, feel free to contact me via email (available on my profile).
 
 ## Installation
 
